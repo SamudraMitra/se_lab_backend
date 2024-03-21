@@ -28,7 +28,7 @@ app.listen(PORT, () => {
 app.post("/create", async (req, res) => {
   let { email, password } = req.body;
   const cryptedPassword = await bcrypt.hash(password, 12);
-  const newitem = await new Employee({
+  const newitem = await new Cashier({
     email,
     password: cryptedPassword,
   }).save();
@@ -54,6 +54,7 @@ app.post("/managerlogin", async (req, res) => {
   }
 });
 app.post("/cashierlogin", async (req, res) => {
+  // console.log(req);
   const { email, password } = req.body;
   const user = await Cashier.findOne({ email });
   if (!user) {
@@ -93,10 +94,80 @@ app.post("/employeelogin", async (req, res) => {
 });
 app.post("/additem", async (req, res) => {
   let { code, price, qty } = req.body;
-  const newitem = await new Item({
-    code,
-    price,
-    qty,
-  }).save();
-  res.json(newitem);
+  try {
+    const newitem = await new Item({
+      code,
+      price,
+      qty,
+    }).save();
+    return res.status(200).json({
+      message: "Added Successfully",
+    });
+  } catch (err) {
+    return res
+      .status(500)
+      .json({ message: "oops! the server ran into some issue" });
+  }
+});
+
+app.post("/inventory", async (req, res) => {
+  console.log(req.body);
+  const { items } = req.body;
+  items.forEach(async (it) => {
+    await Item.findOneAndUpdate(
+      { _id: it._id },
+      {
+        $set: { qty: it.qty },
+      }
+    );
+    await Item.findOneAndUpdate(
+      { _id: it._id },
+      {
+        $set: { price: it.price },
+      }
+    );
+  });
+  res.status(200).json({ msg: "ok" });
+});
+app.post("/employeechange", async (req, res) => {
+  // console.log(req.body);
+  try {
+    const items = req.body;
+    console.log(items);
+    items.forEach(async (it) => {
+      await Item.findOneAndUpdate(
+        { _id: it._id },
+        { $set: { qty: it.qty } }, // Decrease the quantity by the specified value
+        { returnOriginal: false }
+      );
+    });
+    return res.status(200).json({ message: "done" });
+  } catch (err) {
+    return res.status(500).json({ error: err });
+  }
+});
+app.post("/bill", async (req, res) => {
+  // console.log(req.body);
+  try {
+    const items = req.body;
+    items.forEach(async (it) => {
+      await Item.findOneAndUpdate(
+        { code: it.code },
+        { $inc: { qty: -it.qty } }, // Decrease the quantity by the specified value
+        { returnOriginal: false }
+      );
+    });
+    return res.status(200).json({ message: "done" });
+  } catch (err) {
+    return res.status(500).json({ error: err });
+  }
+});
+
+app.get("/getinventory", async (req, res) => {
+  try {
+    const items = await Item.find();
+    return res.status(200).json({ items: items });
+  } catch (err) {
+    return res.status(500).json({ error: err });
+  }
 });
